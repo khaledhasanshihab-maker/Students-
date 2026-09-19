@@ -1,0 +1,7 @@
+{
+  "name": "Teacher Student Manager",
+  "description": "Student Attendance and Marks Management App for Teachers to manage departments, semesters, subjects, daily attendance, class tests, and comprehensive reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

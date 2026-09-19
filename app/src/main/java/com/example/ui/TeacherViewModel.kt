@@ -60,6 +60,7 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
     // Current date formatted YYYY-MM-DD
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     val selectedAttendanceDate = MutableStateFlow(dateFormat.format(Date()))
+    val selectedAttendanceType = MutableStateFlow("Theory") // "Theory" or "Practical"
 
     // Current attendance edit map: Student ID -> "P" / "A"
     val attendanceStatusMap = MutableStateFlow<Map<Long, String>>(emptyMap())
@@ -186,21 +187,31 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ---------------- ATTENDANCE STATE ----------------
-    val currentSubjectAttendance: StateFlow<List<Attendance>> = selectedSubject.flatMapLatest { sub ->
-        if (sub != null) repository.getAttendanceForSubject(sub.id) else flowOf(emptyList())
+    val currentSubjectAttendance: StateFlow<List<Attendance>> = combine(
+        selectedSubject,
+        selectedAttendanceType
+    ) { sub, type ->
+        sub to type
+    }.flatMapLatest { (sub, type) ->
+        if (sub != null) repository.getAttendanceForSubjectAndType(sub.id, type) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val distinctAttendanceDates: StateFlow<List<String>> = selectedSubject.flatMapLatest { sub ->
-        if (sub != null) repository.getDistinctDates(sub.id) else flowOf(emptyList())
+    val distinctAttendanceDates: StateFlow<List<String>> = combine(
+        selectedSubject,
+        selectedAttendanceType
+    ) { sub, type ->
+        sub to type
+    }.flatMapLatest { (sub, type) ->
+        if (sub != null) repository.getDistinctDatesForType(sub.id, type) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val currentSubjectMarks: StateFlow<List<Marks>> = selectedSubject.flatMapLatest { sub ->
         if (sub != null) repository.getMarksForSubject(sub.id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun loadAttendanceForDate(subjectId: Long, date: String) {
+    fun loadAttendanceForDate(subjectId: Long, date: String, classType: String = selectedAttendanceType.value) {
         viewModelScope.launch(Dispatchers.IO) {
-            val existing = database.attendanceDao().getAttendanceForSubjectAndDateSync(subjectId, date)
+            val existing = database.attendanceDao().getAttendanceForSubjectDateAndTypeSync(subjectId, date, classType)
             val studentsList = students.value
             val newMap = mutableMapOf<Long, String>()
 
@@ -257,6 +268,7 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
             showToast("Please enter a valid class date.")
             return
         }
+        val type = selectedAttendanceType.value
         val map = attendanceStatusMap.value
         if (map.isEmpty()) {
             showToast("No students to save attendance for.")
@@ -264,18 +276,18 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveAttendance(sub.id, date, map)
-            showToast("Attendance saved successfully for $date!")
+            repository.saveAttendance(sub.id, date, map, type)
+            showToast("$type Attendance saved successfully for $date!")
             onSuccess()
         }
     }
 
-    fun deleteAttendanceRecord(date: String) {
+    fun deleteAttendanceRecord(date: String, classType: String = selectedAttendanceType.value) {
         val sub = selectedSubject.value ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteAttendanceForDate(sub.id, date)
-            showToast("Attendance for $date deleted.")
-            loadAttendanceForDate(sub.id, selectedAttendanceDate.value)
+            repository.deleteAttendanceForDate(sub.id, date, classType)
+            showToast("$classType attendance for $date deleted.")
+            loadAttendanceForDate(sub.id, selectedAttendanceDate.value, classType)
         }
     }
 
@@ -368,7 +380,9 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
             res.onSuccess { semId ->
                 var msg = "Semester added successfully!"
                 if (autoAssignCurriculum) {
-                    val predefinedList = com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(name)
+                    val deptName = selectedDepartment.value?.departmentName ?: ""
+                    val predefinedList = com.example.data.model.DiplomaCurricula.getSubjectsForDeptAndSemester(deptName, name)
+                        ?: com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(name)
                     if (!predefinedList.isNullOrEmpty()) {
                         var added = 0
                         for (sub in predefinedList) {
@@ -426,10 +440,14 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
         deptId: Long,
         semId: Long,
         semesterName: String,
+        deptName: String? = null,
         onSuccess: (count: Int) -> Unit = {}
     ) {
         val teacherId = _currentTeacherId.value
-        val predefinedList = com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(semesterName)
+        val actualDeptName = deptName ?: selectedDepartment.value?.departmentName ?: ""
+        val predefinedList = com.example.data.model.DiplomaCurricula.getSubjectsForDeptAndSemester(actualDeptName, semesterName)
+            ?: com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(semesterName)
+
         if (predefinedList.isNullOrEmpty()) {
             showToast("No predefined syllabus found for '$semesterName'.")
             return
@@ -468,9 +486,14 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
 
     fun populateAllCurriculumForDepartment(
         deptId: Long,
+        deptName: String? = null,
         onSuccess: (semCount: Int, subCount: Int) -> Unit = { _, _ -> }
     ) {
         val teacherId = _currentTeacherId.value
+        val actualDeptName = deptName ?: selectedDepartment.value?.departmentName ?: "Computer"
+        val matchedCurriculum = com.example.data.model.DiplomaCurricula.findCurriculumForDepartment(actualDeptName)
+            ?: com.example.data.model.DiplomaCurricula.computerCurriculum
+
         viewModelScope.launch(Dispatchers.IO) {
             val existingSemesters = repository.db.semesterDao().getSemestersByDepartmentSync(deptId)
             var addedSems = 0
@@ -502,7 +525,7 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
                     sem.id
                 }
 
-                val subjectsForSem = com.example.data.model.DiplomaCstCurriculum.semestersWithSubjects[semName] ?: emptyList()
+                val subjectsForSem = matchedCurriculum.semestersWithSubjects[semName] ?: emptyList()
                 val existingSubs = repository.db.subjectDao().getSubjectsByDepartmentAndSemesterSync(deptId, semId)
                 val existingCodes = existingSubs.map { it.subjectCode.trim().lowercase() }.toSet()
                 val existingNames = existingSubs.map { it.subjectName.trim().lowercase() }.toSet()
@@ -524,7 +547,7 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
             }
 
             withContext(Dispatchers.Main) {
-                showToast("Populated $addedSems semesters & $addedSubs subjects for Computer Science Technology!")
+                showToast("Populated $addedSems semesters & $addedSubs subjects for ${matchedCurriculum.departmentName}!")
                 onSuccess(addedSems, addedSubs)
             }
         }
@@ -592,6 +615,49 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
                 onSuccess()
             }.onFailure { err ->
                 showToast(err.message ?: "Error adding student.")
+            }
+        }
+    }
+
+    fun bulkAddStudents(
+        deptId: Long,
+        semId: Long,
+        studentList: List<com.example.util.ParsedStudent>,
+        onComplete: (successCount: Int, skippedCount: Int, errors: List<String>) -> Unit
+    ) {
+        val teacherId = _currentTeacherId.value
+        viewModelScope.launch(Dispatchers.IO) {
+            var successCount = 0
+            var skippedCount = 0
+            val errorMessages = mutableListOf<String>()
+
+            for (item in studentList) {
+                val res = repository.addStudent(
+                    teacherId = teacherId,
+                    deptId = deptId,
+                    semId = semId,
+                    roll = item.rollNumber,
+                    reg = item.registrationNumber,
+                    name = item.studentName
+                )
+                if (res.isSuccess) {
+                    successCount++
+                } else {
+                    skippedCount++
+                    val err = res.exceptionOrNull()?.message ?: "Unknown error"
+                    errorMessages.add("Roll ${item.rollNumber} (${item.studentName}): $err")
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                if (successCount > 0 && skippedCount == 0) {
+                    showToast("Successfully enrolled all $successCount students!")
+                } else if (successCount > 0) {
+                    showToast("Enrolled $successCount students. Skipped $skippedCount duplicates/errors.")
+                } else {
+                    showToast("Could not import students: All entries failed or already exist.")
+                }
+                onComplete(successCount, skippedCount, errorMessages)
             }
         }
     }

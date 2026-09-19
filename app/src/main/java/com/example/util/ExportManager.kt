@@ -103,7 +103,7 @@ object ExportManager {
 
         // Title row
         sb.append("   <Row ss:Height=\"30\">\n")
-        sb.append("    <Cell ss:MergeAcross=\"11\" ss:StyleID=\"TitleStyle\"><Data ss:Type=\"String\">Teacher Student Manager - Academic Report</Data></Cell>\n")
+        sb.append("    <Cell ss:MergeAcross=\"11\" ss:StyleID=\"TitleStyle\"><Data ss:Type=\"String\">E-Class Track - Academic Report</Data></Cell>\n")
         sb.append("   </Row>\n")
 
         // Metadata rows
@@ -273,7 +273,7 @@ object ExportManager {
             canvas.drawRect(30f, 25f, (pageWidth - 30).toFloat(), 28f, paint)
 
             // Title
-            canvas.drawText("TEACHER STUDENT MANAGER - ACADEMIC REPORT", 30f, 48f, titlePaint)
+            canvas.drawText("E-CLASS TRACK - ACADEMIC REPORT", 30f, 48f, titlePaint)
 
             // Subtitle info
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
@@ -400,7 +400,7 @@ object ExportManager {
             paint.style = Paint.Style.FILL
 
             // Footer credit
-            canvas.drawText("Teacher Student Manager • Developed by Khaled Hasan Shihab", 30f, pageHeight - 20f, subTitlePaint)
+            canvas.drawText("E-Class Track • Developed by Khaled Hasan Shihab", 30f, pageHeight - 20f, subTitlePaint)
             val teacherSign = "Teacher's Signature: _______________________"
             val signW = subTitlePaint.measureText(teacherSign)
             canvas.drawText(teacherSign, tableRight - signW, pageHeight - 20f, subTitlePaint)

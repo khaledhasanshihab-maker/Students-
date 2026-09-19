@@ -166,10 +166,11 @@ data class Student(
         )
     ],
     indices = [
-        Index(value = ["student_id", "subject_id", "class_date"], unique = true),
+        Index(value = ["student_id", "subject_id", "class_date", "class_type"], unique = true),
         Index(value = ["student_id"]),
         Index(value = ["subject_id"]),
-        Index(value = ["class_date"])
+        Index(value = ["class_date"]),
+        Index(value = ["class_type"])
     ]
 )
 data class Attendance(
@@ -181,6 +182,8 @@ data class Attendance(
     val subjectId: Long,
     @ColumnInfo(name = "class_date")
     val classDate: String, // Format: YYYY-MM-DD or DD-MM-YYYY
+    @ColumnInfo(name = "class_type", defaultValue = "Theory")
+    val classType: String = "Theory", // "Theory" or "Practical"
     val status: String // "P" or "A"
 )
 

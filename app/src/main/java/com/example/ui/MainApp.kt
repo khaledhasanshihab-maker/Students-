@@ -126,7 +126,7 @@ fun MainApp(
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Teacher Student Manager",
+                                text = "E-Class Track",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White

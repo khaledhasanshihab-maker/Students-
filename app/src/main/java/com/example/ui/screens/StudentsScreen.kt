@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -71,6 +72,7 @@ fun StudentsScreen(
 
     // Dialog states
     var showAddDialog by remember { mutableStateOf(false) }
+    var showBulkImportDialog by remember { mutableStateOf(false) }
     var studentToEdit by remember { mutableStateOf<Student?>(null) }
     var studentToDelete by remember { mutableStateOf<Student?>(null) }
 
@@ -149,16 +151,31 @@ fun StudentsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Students (${filteredStudents.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Sorted by Roll No",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                    Text(
+                        text = "Students (${filteredStudents.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Sorted by Roll No",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (selectedDept != null && selectedSem != null) {
+                    Button(
+                        onClick = { showBulkImportDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("bulk_enroll_button")
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Bulk Import (Excel/CSV)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -418,6 +435,19 @@ fun StudentsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { studentToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // ---------------- BULK STUDENT IMPORT DIALOG ----------------
+    if (showBulkImportDialog && selectedDept != null && selectedSem != null) {
+        BulkStudentImportDialog(
+            department = selectedDept!!,
+            semester = selectedSem!!,
+            viewModel = viewModel,
+            onDismiss = { showBulkImportDialog = false },
+            onSuccess = { count ->
+                showBulkImportDialog = false
             }
         )
     }

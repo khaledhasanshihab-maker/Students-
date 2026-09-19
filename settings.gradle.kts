@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Teacher Student Manager"
+rootProject.name = "E-Class track"
 
 include(":app")

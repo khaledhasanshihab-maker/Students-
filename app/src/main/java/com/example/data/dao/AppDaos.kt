@@ -148,6 +148,12 @@ interface StudentDao {
 
 @Dao
 interface AttendanceDao {
+    @Query("SELECT * FROM attendance WHERE subject_id = :subjectId AND class_date = :classDate AND class_type = :classType")
+    fun getAttendanceForSubjectDateAndType(subjectId: Long, classDate: String, classType: String): Flow<List<Attendance>>
+
+    @Query("SELECT * FROM attendance WHERE subject_id = :subjectId AND class_date = :classDate AND class_type = :classType")
+    suspend fun getAttendanceForSubjectDateAndTypeSync(subjectId: Long, classDate: String, classType: String): List<Attendance>
+
     @Query("SELECT * FROM attendance WHERE subject_id = :subjectId AND class_date = :classDate")
     fun getAttendanceForSubjectAndDate(subjectId: Long, classDate: String): Flow<List<Attendance>>
 
@@ -156,6 +162,9 @@ interface AttendanceDao {
 
     @Query("SELECT * FROM attendance WHERE subject_id = :subjectId")
     fun getAttendanceForSubject(subjectId: Long): Flow<List<Attendance>>
+
+    @Query("SELECT * FROM attendance WHERE subject_id = :subjectId AND class_type = :classType")
+    fun getAttendanceForSubjectAndType(subjectId: Long, classType: String): Flow<List<Attendance>>
 
     @Query("SELECT * FROM attendance WHERE student_id = :studentId ORDER BY class_date DESC")
     fun getAttendanceForStudent(studentId: Long): Flow<List<Attendance>>
@@ -169,8 +178,17 @@ interface AttendanceDao {
     @Query("SELECT DISTINCT class_date FROM attendance WHERE subject_id = :subjectId ORDER BY class_date ASC")
     suspend fun getDistinctDatesForSubjectSync(subjectId: Long): List<String>
 
+    @Query("SELECT DISTINCT class_date FROM attendance WHERE subject_id = :subjectId AND class_type = :classType ORDER BY class_date ASC")
+    fun getDistinctDatesForSubjectAndType(subjectId: Long, classType: String): Flow<List<String>>
+
+    @Query("SELECT DISTINCT class_date FROM attendance WHERE subject_id = :subjectId AND class_type = :classType ORDER BY class_date ASC")
+    suspend fun getDistinctDatesForSubjectAndTypeSync(subjectId: Long, classType: String): List<String>
+
     @Query("SELECT COUNT(DISTINCT class_date) FROM attendance WHERE subject_id = :subjectId")
     fun getTotalClassesForSubject(subjectId: Long): Flow<Int>
+
+    @Query("SELECT COUNT(DISTINCT class_date) FROM attendance WHERE subject_id = :subjectId AND class_type = :classType")
+    fun getTotalClassesForSubjectAndType(subjectId: Long, classType: String): Flow<Int>
 
     @Query("SELECT COUNT(DISTINCT class_date) FROM attendance WHERE subject_id IN (SELECT id FROM subjects WHERE teacher_id = :teacherId)")
     fun getTotalClassesForTeacher(teacherId: Long): Flow<Int>
@@ -180,6 +198,9 @@ interface AttendanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllAttendance(list: List<Attendance>)
+
+    @Query("DELETE FROM attendance WHERE subject_id = :subjectId AND class_date = :classDate AND class_type = :classType")
+    suspend fun deleteAttendanceForDateAndType(subjectId: Long, classDate: String, classType: String)
 
     @Query("DELETE FROM attendance WHERE subject_id = :subjectId AND class_date = :classDate")
     suspend fun deleteAttendanceForDate(subjectId: Long, classDate: String)

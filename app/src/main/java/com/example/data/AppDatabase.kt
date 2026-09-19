@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         Attendance::class,
         Marks::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,6 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "teacher_student_manager_db"
                 )
+                    .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback(scope))
                     .build()
                 INSTANCE = instance
@@ -103,72 +104,74 @@ abstract class AppDatabase : RoomDatabase() {
                     departmentName = "Electronics Technology"
                 )
             )
-            val civilDeptId = deptDao.insertDepartment(
+            val foodDeptId = deptDao.insertDepartment(
                 Department(
                     teacherId = teacherId,
-                    departmentName = "Civil Technology"
+                    departmentName = "Food Technology"
+                )
+            )
+            val racDeptId = deptDao.insertDepartment(
+                Department(
+                    teacherId = teacherId,
+                    departmentName = "RAC Technology"
                 )
             )
 
-            // Semesters 1st through 7th for Computer Technology
             val semDao = database.semesterDao()
             val subDao = database.subjectDao()
 
             var networkingSubId: Long = 0L
             var sem6Id: Long = 0L
 
-            for (semNum in 1..7) {
-                val semName = when (semNum) {
-                    1 -> "1st Semester"
-                    2 -> "2nd Semester"
-                    3 -> "3rd Semester"
-                    4 -> "4th Semester"
-                    5 -> "5th Semester"
-                    6 -> "6th Semester"
-                    7 -> "7th Semester"
-                    else -> "$semNum" + "th Semester"
-                }
+            // Seed full semesters & subjects for all predefined curricula
+            val curriculaToSeed = listOf(
+                Pair(compDeptId, com.example.data.model.DiplomaCurricula.computerCurriculum),
+                Pair(elecDeptId, com.example.data.model.DiplomaCurricula.electronicsCurriculum),
+                Pair(foodDeptId, com.example.data.model.DiplomaCurricula.foodCurriculum),
+                Pair(racDeptId, com.example.data.model.DiplomaCurricula.racCurriculum)
+            )
 
-                val semId = semDao.insertSemester(
-                    Semester(
-                        departmentId = compDeptId,
-                        semesterName = semName
-                    )
-                )
-                if (semNum == 6) {
-                    sem6Id = semId
-                }
+            for ((dId, curr) in curriculaToSeed) {
+                for (semNum in 1..7) {
+                    val semName = when (semNum) {
+                        1 -> "1st Semester"
+                        2 -> "2nd Semester"
+                        3 -> "3rd Semester"
+                        4 -> "4th Semester"
+                        5 -> "5th Semester"
+                        6 -> "6th Semester"
+                        7 -> "7th Semester"
+                        else -> "$semNum" + "th Semester"
+                    }
 
-                val defaultSubjects = com.example.data.model.DiplomaCstCurriculum.semestersWithSubjects[semName] ?: emptyList()
-                for (defSub in defaultSubjects) {
-                    val sId = subDao.insertSubject(
-                        Subject(
-                            departmentId = compDeptId,
-                            semesterId = semId,
-                            teacherId = teacherId,
-                            subjectName = defSub.subjectName,
-                            subjectCode = defSub.subjectCode
+                    val sId = semDao.insertSemester(
+                        Semester(
+                            departmentId = dId,
+                            semesterName = semName
                         )
                     )
-                    if (semNum == 6 && defSub.subjectName.contains("Computer Networking", ignoreCase = true)) {
-                        networkingSubId = sId
+
+                    if (dId == compDeptId && semNum == 6) {
+                        sem6Id = sId
+                    }
+
+                    val subjects = curr.semestersWithSubjects[semName] ?: emptyList()
+                    for (defSub in subjects) {
+                        val subId = subDao.insertSubject(
+                            Subject(
+                                departmentId = dId,
+                                semesterId = sId,
+                                teacherId = teacherId,
+                                subjectName = defSub.subjectName,
+                                subjectCode = defSub.subjectCode
+                            )
+                        )
+                        if (dId == compDeptId && semNum == 6 && defSub.subjectName.contains("Computer Networking", ignoreCase = true)) {
+                            networkingSubId = subId
+                        }
                     }
                 }
             }
-
-            // Also add for Electronics & Civil for demo
-            semDao.insertSemester(
-                Semester(
-                    departmentId = elecDeptId,
-                    semesterName = "1st Semester"
-                )
-            )
-            semDao.insertSemester(
-                Semester(
-                    departmentId = civilDeptId,
-                    semesterName = "1st Semester"
-                )
-            )
 
             // Students:
             // Roll 101 - Rahim
@@ -207,17 +210,21 @@ abstract class AppDatabase : RoomDatabase() {
             )
 
             // Sample Attendance
-            // 01-09-2026: 101=P, 102=A, 103=P
-            // 03-09-2026: 101=P, 102=P, 103=A
+            // 01-09-2026 (Theory): 101=P, 102=A, 103=P
+            // 03-09-2026 (Theory): 101=P, 102=P, 103=A
+            // 04-09-2026 (Practical): 101=P, 102=P, 103=P
             val attDao = database.attendanceDao()
             attDao.insertAllAttendance(
                 listOf(
-                    Attendance(studentId = rahimId, subjectId = networkingSubId, classDate = "2026-09-01", status = "P"),
-                    Attendance(studentId = karimId, subjectId = networkingSubId, classDate = "2026-09-01", status = "A"),
-                    Attendance(studentId = hasanId, subjectId = networkingSubId, classDate = "2026-09-01", status = "P"),
-                    Attendance(studentId = rahimId, subjectId = networkingSubId, classDate = "2026-09-03", status = "P"),
-                    Attendance(studentId = karimId, subjectId = networkingSubId, classDate = "2026-09-03", status = "P"),
-                    Attendance(studentId = hasanId, subjectId = networkingSubId, classDate = "2026-09-03", status = "A")
+                    Attendance(studentId = rahimId, subjectId = networkingSubId, classDate = "2026-09-01", classType = "Theory", status = "P"),
+                    Attendance(studentId = karimId, subjectId = networkingSubId, classDate = "2026-09-01", classType = "Theory", status = "A"),
+                    Attendance(studentId = hasanId, subjectId = networkingSubId, classDate = "2026-09-01", classType = "Theory", status = "P"),
+                    Attendance(studentId = rahimId, subjectId = networkingSubId, classDate = "2026-09-03", classType = "Theory", status = "P"),
+                    Attendance(studentId = karimId, subjectId = networkingSubId, classDate = "2026-09-03", classType = "Theory", status = "P"),
+                    Attendance(studentId = hasanId, subjectId = networkingSubId, classDate = "2026-09-03", classType = "Theory", status = "A"),
+                    Attendance(studentId = rahimId, subjectId = networkingSubId, classDate = "2026-09-04", classType = "Practical", status = "P"),
+                    Attendance(studentId = karimId, subjectId = networkingSubId, classDate = "2026-09-04", classType = "Practical", status = "P"),
+                    Attendance(studentId = hasanId, subjectId = networkingSubId, classDate = "2026-09-04", classType = "Practical", status = "P")
                 )
             )
 

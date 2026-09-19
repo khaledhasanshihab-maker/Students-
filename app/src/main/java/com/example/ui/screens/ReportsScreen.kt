@@ -92,6 +92,7 @@ fun ReportsScreen(
     val selectedDept by viewModel.selectedDepartment.collectAsStateWithLifecycle()
     val selectedSem by viewModel.selectedSemester.collectAsStateWithLifecycle()
     val selectedSub by viewModel.selectedSubject.collectAsStateWithLifecycle()
+    val selectedClassType by viewModel.selectedAttendanceType.collectAsStateWithLifecycle()
 
     val students by viewModel.students.collectAsStateWithLifecycle()
     val attendanceRecords by viewModel.currentSubjectAttendance.collectAsStateWithLifecycle()
@@ -208,6 +209,61 @@ fun ReportsScreen(
                         viewModel.selectedSubject.value = it
                     }
                 )
+
+                // Report Class Type: Theory vs Practical
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Attendance Filter:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val isTheory = selectedClassType == "Theory"
+                    val isPractical = selectedClassType == "Practical"
+
+                    Button(
+                        onClick = { viewModel.selectedAttendanceType.value = "Theory" },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("report_theory_type_btn"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isTheory) PrimaryNavy else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isTheory) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "📘 Theory",
+                            fontWeight = if (isTheory) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { viewModel.selectedAttendanceType.value = "Practical" },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("report_practical_type_btn"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isPractical) PrimaryNavy else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isPractical) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "🔬 Practical",
+                            fontWeight = if (isPractical) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             }
 
             Divider(color = DividerColor)
@@ -326,7 +382,7 @@ fun ReportsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Semester & Subject Master Report",
+                            text = "Master Report ($selectedClassType Attendance)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )

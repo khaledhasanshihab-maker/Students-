@@ -238,11 +238,20 @@ class TeacherRepository(val db: AppDatabase) {
     fun getAttendanceForDate(subjectId: Long, date: String): Flow<List<Attendance>> =
         attendanceDao.getAttendanceForSubjectAndDate(subjectId, date)
 
+    fun getAttendanceForDateAndType(subjectId: Long, date: String, classType: String): Flow<List<Attendance>> =
+        attendanceDao.getAttendanceForSubjectDateAndType(subjectId, date, classType)
+
     fun getAttendanceForSubject(subjectId: Long): Flow<List<Attendance>> =
         attendanceDao.getAttendanceForSubject(subjectId)
 
+    fun getAttendanceForSubjectAndType(subjectId: Long, classType: String): Flow<List<Attendance>> =
+        attendanceDao.getAttendanceForSubjectAndType(subjectId, classType)
+
     fun getDistinctDates(subjectId: Long): Flow<List<String>> =
         attendanceDao.getDistinctDatesForSubject(subjectId)
+
+    fun getDistinctDatesForType(subjectId: Long, classType: String): Flow<List<String>> =
+        attendanceDao.getDistinctDatesForSubjectAndType(subjectId, classType)
 
     fun getAttendanceForStudent(studentId: Long): Flow<List<Attendance>> =
         attendanceDao.getAttendanceForStudent(studentId)
@@ -253,21 +262,27 @@ class TeacherRepository(val db: AppDatabase) {
     suspend fun saveAttendance(
         subjectId: Long,
         date: String,
-        statusMap: Map<Long, String>
+        statusMap: Map<Long, String>,
+        classType: String = "Theory"
     ) {
         val records = statusMap.map { (studentId, status) ->
             Attendance(
                 studentId = studentId,
                 subjectId = subjectId,
                 classDate = date,
+                classType = classType,
                 status = if (status == "A") "A" else "P"
             )
         }
         attendanceDao.insertAllAttendance(records)
     }
 
-    suspend fun deleteAttendanceForDate(subjectId: Long, date: String) {
-        attendanceDao.deleteAttendanceForDate(subjectId, date)
+    suspend fun deleteAttendanceForDate(subjectId: Long, date: String, classType: String? = null) {
+        if (classType != null) {
+            attendanceDao.deleteAttendanceForDateAndType(subjectId, date, classType)
+        } else {
+            attendanceDao.deleteAttendanceForDate(subjectId, date)
+        }
     }
 
     // ---------------- MARKS ----------------

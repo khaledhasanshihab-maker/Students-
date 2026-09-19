@@ -138,7 +138,7 @@ fun SplashScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Teacher Student Manager",
+                    text = "E-Class Track",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,

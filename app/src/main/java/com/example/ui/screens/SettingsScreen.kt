@@ -299,7 +299,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Teacher Student Manager v1.1 (CST Syllabus Edition)\nDeveloped by Khaled Hasan Shihab\nBuilt with Android Jetpack Compose & Room Database.\nDesigned for fast daily attendance, syllabus management and marks evaluation.",
+                        text = "E-Class Track v1.4 (Multi-Department Syllabus Edition)\nIncludes CST, Electronics, Food & RAC Curricula\nDeveloped by Khaled Hasan Shihab\nBuilt with Android Jetpack Compose & Room Database.\nDesigned for fast daily attendance, syllabus management and marks evaluation.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

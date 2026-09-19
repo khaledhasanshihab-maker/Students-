@@ -268,7 +268,8 @@ fun DepartmentsScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 item {
-                                    val isComputerDept = selectedDept?.departmentName?.contains("Computer", ignoreCase = true) == true
+                                    val matchedCurriculum = selectedDept?.let { com.example.data.model.DiplomaCurricula.findCurriculumForDepartment(it.departmentName) }
+                                    val hasPredefinedCurriculum = matchedCurriculum != null
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -281,11 +282,11 @@ fun DepartmentsScreen(
                                                 fontWeight = FontWeight.Bold
                                             )
 
-                                            if (isComputerDept) {
+                                            if (hasPredefinedCurriculum) {
                                                 OutlinedButton(
                                                     onClick = {
                                                         selectedDept?.let { dept ->
-                                                            viewModel.populateAllCurriculumForDepartment(dept.id)
+                                                            viewModel.populateAllCurriculumForDepartment(dept.id, dept.departmentName)
                                                         }
                                                     },
                                                     shape = RoundedCornerShape(8.dp)
@@ -293,6 +294,49 @@ fun DepartmentsScreen(
                                                     Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = SecondaryTeal)
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text("Import 1st-7th Sem", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                        }
+
+                                        if (hasPredefinedCurriculum && semesters.isEmpty()) {
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = CardDefaults.cardColors(containerColor = SecondaryTeal.copy(alpha = 0.1f)),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, SecondaryTeal.copy(alpha = 0.3f))
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = "${matchedCurriculum.departmentName} Curriculum Available",
+                                                            style = MaterialTheme.typography.titleSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = PrimaryNavy
+                                                        )
+                                                        Text(
+                                                            text = "Official BTEB 1st to 7th semester syllabus ready with all book codes. Click to auto-generate all semesters & subjects.",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Button(
+                                                        onClick = {
+                                                            selectedDept?.let { dept ->
+                                                                viewModel.populateAllCurriculumForDepartment(dept.id, dept.departmentName)
+                                                            }
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = SecondaryTeal),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Text("Auto Setup", fontWeight = FontWeight.Bold)
+                                                    }
                                                 }
                                             }
                                         }
@@ -416,7 +460,10 @@ fun DepartmentsScreen(
                             ) {
                                 item {
                                     val semName = selectedSem?.semesterName ?: ""
-                                    val curriculumSubjects = com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(semName)
+                                    val deptName = selectedDept?.departmentName ?: ""
+                                    val curriculumSubjects = com.example.data.model.DiplomaCurricula.getSubjectsForDeptAndSemester(deptName, semName)
+                                        ?: com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(semName)
+                                    val matchedCurriculum = selectedDept?.let { com.example.data.model.DiplomaCurricula.findCurriculumForDepartment(it.departmentName) }
                                     val hasCurriculum = !curriculumSubjects.isNullOrEmpty()
 
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -438,7 +485,8 @@ fun DepartmentsScreen(
                                                             viewModel.assignCurriculumSubjectsForSemester(
                                                                 deptId = selectedDept!!.id,
                                                                 semId = selectedSem!!.id,
-                                                                semesterName = selectedSem!!.semesterName
+                                                                semesterName = selectedSem!!.semesterName,
+                                                                deptName = selectedDept!!.departmentName
                                                             )
                                                         }
                                                     },
@@ -468,7 +516,7 @@ fun DepartmentsScreen(
                                                 ) {
                                                     Column(modifier = Modifier.weight(1f)) {
                                                         Text(
-                                                            text = "Diploma CST Curriculum Available",
+                                                            text = "${matchedCurriculum?.departmentName ?: "BTEB"} Curriculum Available",
                                                             style = MaterialTheme.typography.titleSmall,
                                                             fontWeight = FontWeight.Bold,
                                                             color = PrimaryNavy
@@ -486,7 +534,8 @@ fun DepartmentsScreen(
                                                                 viewModel.assignCurriculumSubjectsForSemester(
                                                                     deptId = selectedDept!!.id,
                                                                     semId = selectedSem!!.id,
-                                                                    semesterName = selectedSem!!.semesterName
+                                                                    semesterName = selectedSem!!.semesterName,
+                                                                    deptName = selectedDept!!.departmentName
                                                                 )
                                                             }
                                                         },
@@ -629,6 +678,26 @@ fun DepartmentsScreen(
                             .fillMaxWidth()
                             .testTag("dialog_dept_name_input")
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Quick Select Predefined Department:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = SecondaryTeal
+                    )
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(com.example.data.model.DiplomaCurricula.allCurricula) { curr ->
+                            androidx.compose.material3.FilterChip(
+                                selected = name.equals(curr.departmentName, ignoreCase = true),
+                                onClick = { name = curr.departmentName },
+                                label = { Text("${curr.shortName} - ${curr.departmentName}", style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -811,7 +880,10 @@ fun DepartmentsScreen(
     if (showAddSubDialog && selectedDept != null && selectedSem != null) {
         var subName by remember { mutableStateOf("") }
         var subCode by remember { mutableStateOf("") }
-        val curriculumSubjects = com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(selectedSem!!.semesterName)
+        val curriculumSubjects = com.example.data.model.DiplomaCurricula.getSubjectsForDeptAndSemester(
+            selectedDept!!.departmentName,
+            selectedSem!!.semesterName
+        ) ?: com.example.data.model.DiplomaCstCurriculum.getSubjectsForSemester(selectedSem!!.semesterName)
 
         AlertDialog(
             onDismissRequest = { showAddSubDialog = false },

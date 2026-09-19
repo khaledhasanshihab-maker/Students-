@@ -103,6 +103,7 @@ fun AttendanceScreen(
     val selectedSub by viewModel.selectedSubject.collectAsStateWithLifecycle()
 
     val selectedDate by viewModel.selectedAttendanceDate.collectAsStateWithLifecycle()
+    val selectedClassType by viewModel.selectedAttendanceType.collectAsStateWithLifecycle()
     val statusMap by viewModel.attendanceStatusMap.collectAsStateWithLifecycle()
     val students by viewModel.students.collectAsStateWithLifecycle()
     val subjectAttendance by viewModel.currentSubjectAttendance.collectAsStateWithLifecycle()
@@ -115,10 +116,10 @@ fun AttendanceScreen(
         )
     }
 
-    // When subject or date changes, reload attendance map
-    LaunchedEffect(selectedSub, selectedDate, students) {
+    // When subject, date, or class type changes, reload attendance map
+    LaunchedEffect(selectedSub, selectedDate, selectedClassType, students) {
         selectedSub?.let { sub ->
-            viewModel.loadAttendanceForDate(sub.id, selectedDate)
+            viewModel.loadAttendanceForDate(sub.id, selectedDate, selectedClassType)
         }
     }
 
@@ -210,6 +211,61 @@ fun AttendanceScreen(
                         viewModel.selectedSubject.value = it
                     }
                 )
+
+                // Class Type Selector: Theory vs Practical
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Class Type:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val isTheory = selectedClassType == "Theory"
+                    val isPractical = selectedClassType == "Practical"
+
+                    Button(
+                        onClick = { viewModel.selectedAttendanceType.value = "Theory" },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("theory_type_btn"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isTheory) PrimaryNavy else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isTheory) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "📘 Theory",
+                            fontWeight = if (isTheory) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { viewModel.selectedAttendanceType.value = "Practical" },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("practical_type_btn"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isPractical) PrimaryNavy else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isPractical) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "🔬 Practical",
+                            fontWeight = if (isPractical) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             }
 
             Divider(color = DividerColor)
@@ -528,7 +584,7 @@ fun AttendanceScreen(
                                     ) {
                                         Icon(Icons.Default.Save, contentDescription = null)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Save Attendance ($selectedDate)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                        Text("Save $selectedClassType Attendance ($selectedDate)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(36.dp))
                                 }
@@ -541,6 +597,7 @@ fun AttendanceScreen(
                         AttendanceTableView(
                             students = sortedStudents,
                             dates = distinctDates,
+                            classType = selectedClassType,
                             attendanceRecords = subjectAttendance,
                             onDeleteDate = { dateToDelete = it },
                             onSelectDate = { date ->
@@ -558,14 +615,14 @@ fun AttendanceScreen(
     dateToDelete?.let { date ->
         AlertDialog(
             onDismissRequest = { dateToDelete = null },
-            title = { Text("Delete Class Attendance") },
+            title = { Text("Delete $selectedClassType Attendance") },
             text = {
-                Text("Are you sure you want to delete this?\n\nDeleting attendance for date $date will permanently erase the records for that class.")
+                Text("Are you sure you want to delete this?\n\nDeleting $selectedClassType attendance for date $date will permanently erase the records for that class.")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteAttendanceRecord(date)
+                        viewModel.deleteAttendanceRecord(date, selectedClassType)
                         dateToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AbsentRed)
@@ -582,6 +639,7 @@ fun AttendanceScreen(
 fun AttendanceTableView(
     students: List<Student>,
     dates: List<String>,
+    classType: String = "Theory",
     attendanceRecords: List<Attendance>,
     onDeleteDate: (String) -> Unit,
     onSelectDate: (String) -> Unit
@@ -604,7 +662,7 @@ fun AttendanceTableView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Attendance Sheet (${dates.size} classes held)",
+                text = "$classType Attendance Sheet (${dates.size} classes held)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -619,7 +677,7 @@ fun AttendanceTableView(
 
         if (dates.isEmpty()) {
             EmptyStateCard(
-                message = "No attendance recorded yet for this subject.\nSwitch to 'Take Daily Attendance' tab to record class attendance.",
+                message = "No $classType attendance recorded yet for this subject.\nSwitch to 'Take Daily Attendance' tab to record class attendance.",
                 icon = Icons.Default.ListAlt
             )
         } else {

@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,12 +20,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AddToDrive
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -59,6 +65,7 @@ import com.example.ui.theme.PresentGreen
 import com.example.ui.theme.PrimaryNavy
 import com.example.ui.theme.SecondaryTeal
 import com.example.util.CloudSyncManager
+import com.example.util.ExportManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -79,6 +86,21 @@ fun SettingsScreen(
     var isSyncing by remember { mutableStateOf(false) }
     var syncMessage by remember { mutableStateOf<String?>(null) }
     var syncIsError by remember { mutableStateOf(false) }
+
+    var driveBackupMessage by remember { mutableStateOf<String?>(null) }
+    var driveBackupIsError by remember { mutableStateOf(false) }
+
+    var selectedRestoreUri by remember { mutableStateOf<Uri?>(null) }
+    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            selectedRestoreUri = uri
+            showRestoreConfirmDialog = true
+        }
+    }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -233,6 +255,98 @@ fun SettingsScreen(
             }
         }
 
+        // Google Drive / Gmail Cloud Backup Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AddToDrive, contentDescription = null, tint = PrimaryNavy)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Google Drive Backup & Restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "• Backup: Export your full SQLite database and select 'Save to Drive' with your Gmail ($teacherEmail).\n• Restore: Download your backup .db file from Google Drive (or pick from Downloads/Drive directly) to instantly restore all departments, semesters, students, attendance, and marks on any phone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (driveBackupMessage != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (driveBackupIsError) AbsentRed.copy(alpha = 0.1f) else PresentGreen.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = driveBackupMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (driveBackupIsError) AbsentRed else PresentGreen,
+                                modifier = Modifier.padding(10.dp),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            val result = ExportManager.backupDatabaseToDrive(context)
+                            result.onSuccess { msg ->
+                                driveBackupIsError = false
+                                driveBackupMessage = msg
+                            }.onFailure { err ->
+                                driveBackupIsError = true
+                                driveBackupMessage = err.localizedMessage ?: "Failed to generate backup."
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("backup_to_drive_button")
+                    ) {
+                        Icon(Icons.Default.AddToDrive, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Backup & Save to Google Drive", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            // Launch document picker to select .db backup file from Google Drive or Downloads
+                            try {
+                                filePickerLauncher.launch(arrayOf("*/*"))
+                            } catch (e: Exception) {
+                                driveBackupIsError = true
+                                driveBackupMessage = "Could not open file picker: ${e.localizedMessage}"
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("restore_from_drive_button")
+                    ) {
+                        Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp), tint = PrimaryNavy)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Restore Database from Drive / File", fontWeight = FontWeight.Bold, color = PrimaryNavy)
+                    }
+                }
+            }
+        }
+
         // Database & System Status Card
         item {
             Card(
@@ -299,7 +413,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "E-Class Track v1.4 (Multi-Department Syllabus Edition)\nIncludes CST, Electronics, Food & RAC Curricula\nDeveloped by Khaled Hasan Shihab\nBuilt with Android Jetpack Compose & Room Database.\nDesigned for fast daily attendance, syllabus management and marks evaluation.",
+                        text = "E-Class Track v1.7 (Dashboard All-Total Counts & Cloud Backup Edition)\nIncludes CST, Electronics, Food & RAC Curricula\nDeveloped by Khaled Hasan Shihab\nBuilt with Android Jetpack Compose & Room Database.\nDesigned for fast daily attendance, syllabus management, marks evaluation and seamless Google Drive cloud backups.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -344,6 +458,49 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showRestoreConfirmDialog && selectedRestoreUri != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showRestoreConfirmDialog = false
+                selectedRestoreUri = null
+            },
+            title = { Text("Restore Database") },
+            text = {
+                Text("Are you sure you want to restore the database from this file?\n\nThis will replace the current local database with the records from the backup file, then reload all departments, semesters, students, attendance, and marks.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uri = selectedRestoreUri
+                        showRestoreConfirmDialog = false
+                        selectedRestoreUri = null
+                        if (uri != null) {
+                            val res = ExportManager.restoreDatabaseFromUri(context, uri)
+                            res.onSuccess { msg ->
+                                driveBackupIsError = false
+                                driveBackupMessage = msg
+                                viewModel.reloadDatabaseSession()
+                            }.onFailure { err ->
+                                driveBackupIsError = true
+                                driveBackupMessage = err.localizedMessage ?: "Failed to restore database."
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
+                    modifier = Modifier.testTag("dialog_confirm_restore")
+                ) {
+                    Text("Restore Now")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRestoreConfirmDialog = false
+                    selectedRestoreUri = null
+                }) { Text("Cancel") }
             }
         )
     }

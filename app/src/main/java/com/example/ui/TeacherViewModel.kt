@@ -156,6 +156,18 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
         if (id > 0) repository.getAllSemesters(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allSubjects: StateFlow<List<Subject>> = _currentTeacherId.flatMapLatest { id ->
+        if (id > 0) repository.getSubjects(id) else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allStudents: StateFlow<List<Student>> = _currentTeacherId.flatMapLatest { id ->
+        if (id > 0) repository.getStudentsByTeacher(id) else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalClassesHeld: StateFlow<Int> = _currentTeacherId.flatMapLatest { id ->
+        if (id > 0) repository.getTotalClassesForTeacher(id) else flowOf(0)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val subjects: StateFlow<List<Subject>> = combine(
         selectedDepartment,
         selectedSemester
@@ -690,6 +702,32 @@ class TeacherViewModel(application: Application) : AndroidViewModel(application)
                 setSession(teacher)
             }
             showToast("Sample data loaded successfully!")
+        }
+    }
+
+    // ---------------- RELOAD AFTER RESTORE ----------------
+    fun reloadDatabaseSession() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Find current teacher or first available teacher in restored database
+            val curEmail = _teacherEmail.value
+            val user = if (curEmail.isNotEmpty()) {
+                database.userDao().getUserByEmail(curEmail)
+            } else null
+
+            val restoredUser = user ?: database.userDao().getUserByEmail("teacher@school.edu")
+            if (restoredUser != null) {
+                setSession(restoredUser)
+            } else {
+                // If no matching user, query if any user exists or reset teacher id to trigger flow re-query
+                val anyId = _currentTeacherId.value
+                if (anyId > 0) {
+                    _currentTeacherId.value = anyId
+                }
+            }
+            selectedDepartment.value = null
+            selectedSemester.value = null
+            selectedSubject.value = null
+            showToast("Database restored and reloaded successfully!")
         }
     }
 }

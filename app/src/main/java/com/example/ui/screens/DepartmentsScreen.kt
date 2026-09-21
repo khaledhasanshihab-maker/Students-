@@ -47,7 +47,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +73,7 @@ import com.example.ui.theme.CardBorder
 import com.example.ui.theme.PrimaryNavy
 import com.example.ui.theme.SecondaryTeal
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DepartmentsScreen(
     viewModel: TeacherViewModel,
@@ -83,6 +87,13 @@ fun DepartmentsScreen(
 
     val selectedDept by viewModel.selectedDepartment.collectAsStateWithLifecycle()
     val selectedSem by viewModel.selectedSemester.collectAsStateWithLifecycle()
+
+    // Auto-select first department by default if none selected
+    LaunchedEffect(departments) {
+        if (selectedDept == null && departments.isNotEmpty()) {
+            viewModel.selectedDepartment.value = departments.first()
+        }
+    }
 
     // Dialog States
     var showAddDeptDialog by remember { mutableStateOf(false) }
@@ -780,6 +791,30 @@ fun DepartmentsScreen(
             text = {
                 Column {
                     Text("Add semester to ${selectedDept?.departmentName}:", style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Quick Pick Semester:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            "1st Semester",
+                            "2nd Semester",
+                            "3rd Semester",
+                            "4th Semester",
+                            "5th Semester",
+                            "6th Semester",
+                            "7th Semester"
+                        ).forEach { semOpt ->
+                            androidx.compose.material3.FilterChip(
+                                selected = name == semOpt,
+                                onClick = { name = semOpt },
+                                label = { Text(semOpt, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = name,

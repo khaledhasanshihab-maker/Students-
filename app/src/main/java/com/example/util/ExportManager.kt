@@ -2,6 +2,7 @@ package com.example.util
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -430,5 +431,94 @@ object ExportManager {
         }
         val chooser = Intent.createChooser(sendIntent, "Export Report as PDF")
         context.startActivity(chooser)
+    }
+
+    /**
+     * Creates a complete backup of the SQLite database and triggers Android's system share sheet,
+     * allowing the user to select 'Save to Drive' (Google Drive) under their logged-in Gmail account.
+     */
+    fun backupDatabaseToDrive(context: Context): Result<String> {
+        return try {
+            val dbName = "teacher_student_manager_db"
+            val dbFile = context.getDatabasePath(dbName)
+            if (!dbFile.exists()) {
+                return Result.failure(IllegalStateException("Database file not found yet."))
+            }
+
+            // Also check for WAL/SHM files to ensure checkpointed copy
+            val backupsDir = File(context.cacheDir, "backups")
+            if (!backupsDir.exists()) backupsDir.mkdirs()
+
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val backupFileName = "E_Class_Track_Backup_$timestamp.db"
+            val backupFile = File(backupsDir, backupFileName)
+
+            dbFile.inputStream().use { input ->
+                backupFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", backupFile)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "E-Class Track Database Backup ($timestamp)")
+                putExtra(Intent.EXTRA_TEXT, "E-Class Track offline database backup. Save this to your Google Drive to keep your classes, attendance and marks secure.")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            val chooser = Intent.createChooser(shareIntent, "Save to Google Drive / Share Backup")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+
+            Result.success("Backup created ($backupFileName). Choose 'Save to Drive' to store in your Google Drive.")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Restores the SQLite database from a picked backup .db file (e.g. downloaded from Google Drive or picked via system document picker).
+     */
+    fun restoreDatabaseFromUri(context: Context, backupUri: Uri): Result<String> {
+        return try {
+            val dbName = "teacher_student_manager_db"
+            val dbFile = context.getDatabasePath(dbName)
+
+            // Ensure parent folder exists
+            dbFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
+
+            // Temporary verification file to make sure input is valid
+            val tempFile = File(context.cacheDir, "temp_restore.db")
+            context.contentResolver.openInputStream(backupUri)?.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return Result.failure(IllegalStateException("Cannot open backup file."))
+
+            if (tempFile.length() == 0L) {
+                tempFile.delete()
+                return Result.failure(IllegalArgumentException("Selected file is empty or invalid."))
+            }
+
+            // Copy to actual database location
+            tempFile.inputStream().use { input ->
+                dbFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            tempFile.delete()
+
+            // Also remove WAL / SHM files if any existed so SQLite re-indexes cleanly
+            val walFile = File(dbFile.parentFile, "$dbName-wal")
+            if (walFile.exists()) walFile.delete()
+            val shmFile = File(dbFile.parentFile, "$dbName-shm")
+            if (shmFile.exists()) shmFile.delete()
+
+            Result.success("Database restored successfully! The app will reload your restored records.")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -259,6 +259,9 @@ class TeacherRepository(val db: AppDatabase) {
     fun getAttendanceForStudentAndSubject(studentId: Long, subjectId: Long): Flow<List<Attendance>> =
         attendanceDao.getAttendanceForStudentAndSubject(studentId, subjectId)
 
+    fun getTotalClassesForTeacher(teacherId: Long): Flow<Int> =
+        attendanceDao.getTotalClassesForTeacher(teacherId)
+
     suspend fun saveAttendance(
         subjectId: Long,
         date: String,

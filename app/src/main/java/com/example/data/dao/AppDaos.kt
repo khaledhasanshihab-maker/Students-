@@ -190,7 +190,7 @@ interface AttendanceDao {
     @Query("SELECT COUNT(DISTINCT class_date) FROM attendance WHERE subject_id = :subjectId AND class_type = :classType")
     fun getTotalClassesForSubjectAndType(subjectId: Long, classType: String): Flow<Int>
 
-    @Query("SELECT COUNT(DISTINCT class_date) FROM attendance WHERE subject_id IN (SELECT id FROM subjects WHERE teacher_id = :teacherId)")
+    @Query("SELECT COUNT(*) FROM (SELECT DISTINCT subject_id, class_date, class_type FROM attendance WHERE subject_id IN (SELECT id FROM subjects WHERE teacher_id = :teacherId))")
     fun getTotalClassesForTeacher(teacherId: Long): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

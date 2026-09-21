@@ -67,17 +67,18 @@ fun DashboardScreen(
     val teacherName by viewModel.teacherName.collectAsStateWithLifecycle()
     val departments by viewModel.departments.collectAsStateWithLifecycle()
     val semesters by viewModel.allSemesters.collectAsStateWithLifecycle()
-    val subjects by viewModel.subjects.collectAsStateWithLifecycle()
-    val students by viewModel.students.collectAsStateWithLifecycle()
+    val subjects by viewModel.allSubjects.collectAsStateWithLifecycle()
+    val students by viewModel.allStudents.collectAsStateWithLifecycle()
+    val totalClassesCount by viewModel.totalClassesHeld.collectAsStateWithLifecycle()
     val attendanceRecords by viewModel.currentSubjectAttendance.collectAsStateWithLifecycle()
     val distinctDates by viewModel.distinctAttendanceDates.collectAsStateWithLifecycle()
 
-    // Aggregate statistics
+    // Aggregate statistics (Total counts across all departments and semesters)
     val totalDepartments = departments.size
     val totalSemesters = semesters.size
     val totalSubjects = subjects.size
     val totalStudents = students.size
-    val totalClassesHeld = distinctDates.size
+    val totalClassesHeld = totalClassesCount
 
     val presentCount = attendanceRecords.count { it.status == "P" }
     val totalAttendanceRecords = attendanceRecords.size
